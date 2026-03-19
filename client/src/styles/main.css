@@ -16,6 +16,10 @@
   box-sizing: border-box;
 }
 
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
 body {
   margin: 0;
   min-height: 100vh;
@@ -35,7 +39,7 @@ a {
 .page-shell {
   max-width: 1280px;
   margin: 0 auto;
-  padding: 24px;
+  padding: 20px;
 }
 
 .glass-card {
@@ -65,8 +69,63 @@ a {
   font-weight: 700;
 }
 
+img {
+  display: block;
+  max-width: 100%;
+}
+
+.mobile-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.mobile-scroll > * {
+  min-width: 100%;
+}
+
 @media (max-width: 768px) {
+  body {
+    background:
+      radial-gradient(circle at top, rgba(255, 243, 223, 0.92), transparent 36%),
+      linear-gradient(180deg, rgba(255, 247, 233, 0.96), rgba(235, 217, 190, 0.98));
+  }
+
   .page-shell {
     padding: 14px;
+  }
+
+  .glass-card {
+    border-radius: 20px;
+    box-shadow: 0 18px 44px rgba(69, 44, 25, 0.1);
+  }
+
+  .page-title {
+    font-size: clamp(24px, 8vw, 34px);
+    line-height: 1.1;
+  }
+
+  .page-subtitle {
+    margin-top: 8px;
+    line-height: 1.6;
+  }
+
+  .section-title {
+    font-size: 18px;
+    margin-bottom: 12px;
+  }
+}
+
+@media (max-width: 768px) {
+  .el-dialog {
+    width: min(92vw, 560px) !important;
+    margin-top: 6vh !important;
+  }
+
+  .el-dialog__body {
+    padding-top: 12px;
+  }
+
+  .el-button + .el-button {
+    margin-left: 8px;
   }
 }

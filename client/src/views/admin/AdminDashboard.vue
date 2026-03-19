@@ -156,16 +156,18 @@ onMounted(loadAll);
           <h2 class="section-title">菜品分类</h2>
           <el-button type="primary" @click="openCategoryDialog()">新增分类</el-button>
         </div>
-        <el-table :data="categories">
-          <el-table-column prop="name" label="名称" />
-          <el-table-column prop="sort_order" label="排序" width="120" />
-          <el-table-column label="操作" width="180">
-            <template #default="{ row }">
-              <el-button link @click="openCategoryDialog(row)">编辑</el-button>
-              <el-button link type="danger" @click="removeCategory(row.id)">删除</el-button>
-            </template>
-          </el-table-column>
-        </el-table>
+        <div class="mobile-scroll table-wrap">
+          <el-table :data="categories">
+            <el-table-column prop="name" label="名称" min-width="160" />
+            <el-table-column prop="sort_order" label="排序" width="120" />
+            <el-table-column label="操作" width="180">
+              <template #default="{ row }">
+                <el-button link @click="openCategoryDialog(row)">编辑</el-button>
+                <el-button link type="danger" @click="removeCategory(row.id)">删除</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
       </el-tab-pane>
 
       <el-tab-pane label="菜品管理" name="dishes">
@@ -173,25 +175,27 @@ onMounted(loadAll);
           <h2 class="section-title">菜品列表</h2>
           <el-button type="primary" @click="openDishDialog()">新增菜品</el-button>
         </div>
-        <el-table :data="dishes">
-          <el-table-column prop="name" label="菜品" />
-          <el-table-column prop="category_name" label="分类" />
-          <el-table-column prop="price" label="价格">
-            <template #default="{ row }">{{ formatCurrency(row.price) }}</template>
-          </el-table-column>
-          <el-table-column label="状态">
-            <template #default="{ row }">
-              <el-tag :type="row.is_available ? 'success' : 'info'">{{ row.is_available ? "上架" : "下架" }}</el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column label="操作" width="220">
-            <template #default="{ row }">
-              <el-button link @click="openDishDialog(row)">编辑</el-button>
-              <el-button link @click="toggleDish(row.id)">{{ row.is_available ? "下架" : "上架" }}</el-button>
-              <el-button link type="danger" @click="removeDish(row.id)">删除</el-button>
-            </template>
-          </el-table-column>
-        </el-table>
+        <div class="mobile-scroll table-wrap">
+          <el-table :data="dishes">
+            <el-table-column prop="name" label="菜品" min-width="160" />
+            <el-table-column prop="category_name" label="分类" min-width="120" />
+            <el-table-column prop="price" label="价格" width="120">
+              <template #default="{ row }">{{ formatCurrency(row.price) }}</template>
+            </el-table-column>
+            <el-table-column label="状态" width="110">
+              <template #default="{ row }">
+                <el-tag :type="row.is_available ? 'success' : 'info'">{{ row.is_available ? "上架" : "下架" }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" width="220">
+              <template #default="{ row }">
+                <el-button link @click="openDishDialog(row)">编辑</el-button>
+                <el-button link @click="toggleDish(row.id)">{{ row.is_available ? "下架" : "上架" }}</el-button>
+                <el-button link type="danger" @click="removeDish(row.id)">删除</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
       </el-tab-pane>
 
       <el-tab-pane label="订单管理" name="orders">
@@ -207,28 +211,30 @@ onMounted(loadAll);
           <el-date-picker v-model="filters.end_date" type="date" value-format="YYYY-MM-DD" placeholder="结束日期" />
           <el-button type="primary" @click="loadAll">筛选</el-button>
         </div>
-        <el-table :data="orders">
-          <el-table-column prop="order_no" label="订单号" width="180" />
-          <el-table-column prop="customer_name" label="顾客" width="120" />
-          <el-table-column prop="customer_phone" label="电话" width="150" />
-          <el-table-column prop="total_amount" label="金额" width="120">
-            <template #default="{ row }">{{ formatCurrency(row.total_amount) }}</template>
-          </el-table-column>
-          <el-table-column prop="status" label="状态" width="120">
-            <template #default="{ row }">{{ statusText(row.status) }}</template>
-          </el-table-column>
-          <el-table-column prop="created_at" label="时间">
-            <template #default="{ row }">{{ formatTime(row.created_at) }}</template>
-          </el-table-column>
-          <el-table-column label="操作" width="240">
-            <template #default="{ row }">
-              <el-button v-if="row.status === 'pending'" link @click="handleOrder(row.id, 'accept')">接单</el-button>
-              <el-button v-if="row.status === 'pending'" link type="danger" @click="handleOrder(row.id, 'reject')">拒绝</el-button>
-              <el-button v-if="row.status === 'accepted'" link type="success" @click="handleOrder(row.id, 'complete')">完成</el-button>
-              <el-button v-if="['pending', 'accepted'].includes(row.status)" link type="warning" @click="handleOrder(row.id, 'cancel')">取消</el-button>
-            </template>
-          </el-table-column>
-        </el-table>
+        <div class="mobile-scroll table-wrap">
+          <el-table :data="orders">
+            <el-table-column prop="order_no" label="订单号" width="180" />
+            <el-table-column prop="customer_name" label="顾客" width="120" />
+            <el-table-column prop="customer_phone" label="电话" width="150" />
+            <el-table-column prop="total_amount" label="金额" width="120">
+              <template #default="{ row }">{{ formatCurrency(row.total_amount) }}</template>
+            </el-table-column>
+            <el-table-column prop="status" label="状态" width="120">
+              <template #default="{ row }">{{ statusText(row.status) }}</template>
+            </el-table-column>
+            <el-table-column prop="created_at" label="时间" min-width="180">
+              <template #default="{ row }">{{ formatTime(row.created_at) }}</template>
+            </el-table-column>
+            <el-table-column label="操作" width="240">
+              <template #default="{ row }">
+                <el-button v-if="row.status === 'pending'" link @click="handleOrder(row.id, 'accept')">接单</el-button>
+                <el-button v-if="row.status === 'pending'" link type="danger" @click="handleOrder(row.id, 'reject')">拒绝</el-button>
+                <el-button v-if="row.status === 'accepted'" link type="success" @click="handleOrder(row.id, 'complete')">完成</el-button>
+                <el-button v-if="['pending', 'accepted'].includes(row.status)" link type="warning" @click="handleOrder(row.id, 'cancel')">取消</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
         <el-pagination
           v-model:current-page="page"
           class="pagination"
@@ -324,6 +330,10 @@ onMounted(loadAll);
   gap: 18px;
 }
 
+.table-wrap {
+  border-radius: 18px;
+}
+
 .stat-card {
   display: grid;
   gap: 10px;
@@ -341,6 +351,29 @@ onMounted(loadAll);
   margin: 12px 0 18px;
 }
 
+.filters > * {
+  min-width: 0;
+}
+
+@media (max-width: 900px) {
+  .tabs-shell {
+    padding: 16px;
+  }
+
+  .admin-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .table-wrap :deep(.el-table) {
+    min-width: 640px;
+  }
+
+  .pagination {
+    overflow-x: auto;
+  }
+}
+
 @media (max-width: 900px) {
   .admin-header,
   .section-head,
@@ -351,6 +384,20 @@ onMounted(loadAll);
 
   .stats-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .admin-page {
+    gap: 16px;
+  }
+
+  .admin-header {
+    padding: 18px 16px;
+  }
+
+  .filters {
+    gap: 10px;
   }
 }
 </style>

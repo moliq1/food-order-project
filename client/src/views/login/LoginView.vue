@@ -82,4 +82,22 @@ async function submit() {
   margin-top: 18px;
   color: var(--soft);
 }
+
+@media (max-width: 768px) {
+  .login-page {
+    align-items: start;
+    padding: 18px 14px;
+  }
+
+  .login-card {
+    width: 100%;
+    padding: 22px 18px;
+    margin-top: 6vh;
+  }
+
+  .links {
+    flex-direction: column;
+    gap: 10px;
+  }
+}
 </style>

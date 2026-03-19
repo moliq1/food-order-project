@@ -171,6 +171,10 @@ onBeforeUnmount(() => {
   gap: 8px;
 }
 
+.header-actions {
+  flex-wrap: wrap;
+}
+
 .hero-tag {
   color: var(--brand);
   font-weight: 700;
@@ -179,11 +183,38 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 900px) {
-  .merchant-grid,
-  .merchant-header {
+  .merchant-grid {
     grid-template-columns: 1fr;
+  }
+
+  .merchant-header,
+  .header-actions,
+  .quick-actions {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .merchant-header,
+  .column {
+    padding: 18px 16px;
+  }
+
+  .column {
+    min-height: auto;
+  }
+}
+
+@media (max-width: 768px) {
+  .merchant-page {
+    gap: 16px;
+  }
+
+  .column-head {
+    align-items: center;
+  }
+
+  .quick-actions :deep(.el-button) {
+    width: 100%;
   }
 }
 </style>

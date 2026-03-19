@@ -123,7 +123,7 @@ onBeforeUnmount(() => observer?.disconnect());
 <template>
   <div class="page-shell customer-page">
     <section class="hero glass-card">
-      <div>
+      <div class="hero-copy">
         <p class="hero-tag">Taste of Today</p>
         <h1 class="page-title">在线点菜，轻松下单</h1>
         <p class="page-subtitle">
@@ -131,17 +131,21 @@ onBeforeUnmount(() => observer?.disconnect());
         </p>
       </div>
       <div class="hero-panel">
-        <div class="hero-number">{{ cartStore.totalCount }}</div>
-        <div>购物车菜品数</div>
-        <strong>{{ formatCurrency(cartStore.totalAmount) }}</strong>
-        <el-button type="primary" round @click="checkoutVisible = true">立即下单</el-button>
+        <div class="hero-summary">
+          <div>
+            <div class="hero-number">{{ cartStore.totalCount }}</div>
+            <div>购物车菜品数</div>
+          </div>
+          <strong>{{ formatCurrency(cartStore.totalAmount) }}</strong>
+        </div>
+        <el-button type="primary" round class="hero-submit" @click="checkoutVisible = true">立即下单</el-button>
       </div>
     </section>
 
     <section class="content-grid">
       <aside class="glass-card sidebar">
         <h2 class="section-title">菜单分类</h2>
-        <el-menu :default-active="String(activeCategory)">
+        <el-menu :default-active="String(activeCategory)" class="category-menu">
           <el-menu-item
             v-for="category in categories"
             :key="category.id"
@@ -268,6 +272,14 @@ onBeforeUnmount(() => observer?.disconnect());
         <el-button type="primary" @click="submitOrder">提交订单</el-button>
       </template>
     </el-dialog>
+
+    <div class="mobile-cart-bar glass-card">
+      <div>
+        <strong>{{ cartStore.totalCount }} 件商品</strong>
+        <p>{{ formatCurrency(cartStore.totalAmount) }}</p>
+      </div>
+      <el-button type="primary" :disabled="!cartItems.length" @click="checkoutVisible = true">去结算</el-button>
+    </div>
   </div>
 </template>
 
@@ -279,7 +291,7 @@ onBeforeUnmount(() => observer?.disconnect());
 
 .hero {
   display: grid;
-  grid-template-columns: 1.7fr 0.9fr;
+  grid-template-columns: minmax(0, 1.7fr) minmax(280px, 0.9fr);
   gap: 20px;
   padding: 28px;
 }
@@ -291,6 +303,10 @@ onBeforeUnmount(() => observer?.disconnect());
   letter-spacing: 0.16em;
 }
 
+.hero-copy {
+  min-width: 0;
+}
+
 .hero-panel {
   display: grid;
   align-content: center;
@@ -300,10 +316,21 @@ onBeforeUnmount(() => observer?.disconnect());
   background: linear-gradient(180deg, rgba(199, 91, 57, 0.12), rgba(143, 52, 24, 0.18));
 }
 
+.hero-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 16px;
+}
+
 .hero-number {
   font-size: 58px;
   font-weight: 800;
   line-height: 1;
+}
+
+.hero-submit {
+  width: 100%;
 }
 
 .content-grid {
@@ -325,6 +352,11 @@ onBeforeUnmount(() => observer?.disconnect());
   top: 20px;
 }
 
+.category-menu {
+  border-right: 0;
+  background: transparent;
+}
+
 .menu-area {
   display: grid;
   gap: 18px;
@@ -340,6 +372,7 @@ onBeforeUnmount(() => observer?.disconnect());
   justify-content: space-between;
   align-items: center;
   gap: 12px;
+  flex-wrap: wrap;
 }
 
 .dish-grid {
@@ -374,6 +407,10 @@ onBeforeUnmount(() => observer?.disconnect());
   min-height: 44px;
 }
 
+.dish-footer :deep(.el-button) {
+  min-width: 112px;
+}
+
 .cart-list {
   display: grid;
   gap: 14px;
@@ -398,6 +435,10 @@ onBeforeUnmount(() => observer?.disconnect());
   justify-content: flex-start;
 }
 
+.search-form > * {
+  flex: 1 1 180px;
+}
+
 .order-results {
   display: grid;
   gap: 14px;
@@ -406,6 +447,10 @@ onBeforeUnmount(() => observer?.disconnect());
 .order-meta {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
+}
+
+.mobile-cart-bar {
+  display: none;
 }
 
 @media (max-width: 1024px) {
@@ -424,6 +469,100 @@ onBeforeUnmount(() => observer?.disconnect());
 
   .order-meta {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .customer-page {
+    gap: 16px;
+    padding-bottom: 92px;
+  }
+
+  .hero,
+  .sidebar,
+  .cart-panel,
+  .category-card,
+  .order-search {
+    padding: 16px;
+  }
+
+  .hero {
+    gap: 18px;
+  }
+
+  .hero-summary {
+    align-items: center;
+  }
+
+  .hero-number {
+    font-size: 44px;
+  }
+
+  .sidebar {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .category-menu {
+    display: flex;
+    gap: 10px;
+    width: max-content;
+    padding-bottom: 4px;
+  }
+
+  .category-menu :deep(.el-menu-item) {
+    height: 40px;
+    line-height: 40px;
+    border-radius: 999px;
+    padding: 0 16px;
+    background: rgba(255, 255, 255, 0.62);
+    border-bottom: 0;
+  }
+
+  .category-menu :deep(.el-menu-item.is-active) {
+    background: rgba(199, 91, 57, 0.14);
+    color: var(--brand-deep);
+  }
+
+  .dish-card img {
+    height: 168px;
+  }
+
+  .dish-info {
+    padding: 14px;
+  }
+
+  .dish-info p {
+    min-height: auto;
+    line-height: 1.6;
+  }
+
+  .cart-panel {
+    display: none;
+  }
+
+  .search-form {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .mobile-cart-bar {
+    position: fixed;
+    left: 14px;
+    right: 14px;
+    bottom: 12px;
+    z-index: 20;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    padding: 14px 16px;
+    backdrop-filter: blur(18px);
+  }
+
+  .mobile-cart-bar p {
+    margin: 4px 0 0;
+    color: var(--soft);
   }
 }
 </style>
