@@ -1,0 +1,25 @@
+services:
+  server:
+    build:
+      context: ./server
+    container_name: food-order-server
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_PATH: /app/database/food_order.db
+    volumes:
+      - ./database:/app/database
+      - ./server/uploads:/app/uploads
+    expose:
+      - "3000"
+
+  client:
+    build:
+      context: ./client
+    container_name: food-order-client
+    restart: unless-stopped
+    depends_on:
+      - server
+    ports:
+      - "18080:80"
