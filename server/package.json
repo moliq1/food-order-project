@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "node --watch app.js",
-    "start": "node app.js"
+    "start": "node app.js",
+    "init:menu": "node scripts/init-menu.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
