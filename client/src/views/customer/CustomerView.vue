@@ -1,5 +1,5 @@
 <script setup>
-import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
 import { ElMessage } from "element-plus";
 import { dishApi, orderApi } from "../../api";
 import { useCartStore } from "../../stores/cart";
@@ -12,8 +12,11 @@ const orderForm = reactive({ customer_name: "", customer_phone: "", remark: "" }
 const orderResults = ref([]);
 const activeCategory = ref(null);
 const checkoutVisible = ref(false);
+const mobileCartVisible = ref(false);
 const orderFormRef = ref(null);
+const categoryScrollRef = ref(null);
 const categorySections = new Map();
+const categoryItems = new Map();
 let observer;
 
 const cartItems = computed(() => cartStore.items);
@@ -30,6 +33,14 @@ function setCategorySection(id, element) {
     }
   } else {
     categorySections.delete(id);
+  }
+}
+
+function setCategoryItem(id, element) {
+  if (element) {
+    categoryItems.set(id, element?.$el ?? element);
+  } else {
+    categoryItems.delete(id);
   }
 }
 
@@ -61,6 +72,21 @@ function scrollToCategory(id) {
   categorySections.get(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
+function syncActiveCategoryIntoView() {
+  const container = categoryScrollRef.value;
+  const activeItem = categoryItems.get(activeCategory.value);
+  if (!container || !activeItem) {
+    return;
+  }
+
+  const targetLeft = activeItem.offsetLeft - (container.clientWidth - activeItem.offsetWidth) / 2;
+  const maxScrollLeft = container.scrollWidth - container.clientWidth;
+  container.scrollTo({
+    left: Math.max(0, Math.min(targetLeft, maxScrollLeft)),
+    behavior: "smooth"
+  });
+}
+
 async function loadMenu() {
   const response = await dishApi.list();
   categories.value = response.data;
@@ -89,9 +115,15 @@ async function submitOrder() {
   orderResults.value = [await fetchOrderDetail(response.data.id)];
   cartStore.clear();
   checkoutVisible.value = false;
+  mobileCartVisible.value = false;
   orderQuery.customer_name = orderForm.customer_name;
   orderQuery.phone = orderForm.customer_phone.slice(-4);
   ElMessage.success("下单成功，可在下方按姓名和手机号后 4 位查询");
+}
+
+function openCheckout() {
+  mobileCartVisible.value = false;
+  checkoutVisible.value = true;
 }
 
 async function fetchOrderDetail(id) {
@@ -118,6 +150,10 @@ async function cancelOrder(order) {
 
 onMounted(loadMenu);
 onBeforeUnmount(() => observer?.disconnect());
+
+watch(activeCategory, () => {
+  nextTick(syncActiveCategoryIntoView);
+});
 </script>
 
 <template>
@@ -138,23 +174,26 @@ onBeforeUnmount(() => observer?.disconnect());
           </div>
           <strong>{{ formatCurrency(cartStore.totalAmount) }}</strong>
         </div>
-        <el-button type="primary" round class="hero-submit" @click="checkoutVisible = true">立即下单</el-button>
+        <el-button type="primary" round class="hero-submit" @click="openCheckout">立即下单</el-button>
       </div>
     </section>
 
     <section class="content-grid">
       <aside class="glass-card sidebar">
         <h2 class="section-title">菜单分类</h2>
-        <el-menu :default-active="String(activeCategory)" class="category-menu">
-          <el-menu-item
-            v-for="category in categories"
-            :key="category.id"
-            :index="String(category.id)"
-            @click="scrollToCategory(category.id)"
-          >
-            {{ category.name }}
-          </el-menu-item>
-        </el-menu>
+        <div ref="categoryScrollRef" class="category-scroll">
+          <el-menu :default-active="String(activeCategory)" class="category-menu">
+            <el-menu-item
+              v-for="category in categories"
+              :key="category.id"
+              :index="String(category.id)"
+              :ref="(element) => setCategoryItem(category.id, element)"
+              @click="scrollToCategory(category.id)"
+            >
+              {{ category.name }}
+            </el-menu-item>
+          </el-menu>
+        </div>
       </aside>
 
       <main class="menu-area">
@@ -210,7 +249,7 @@ onBeforeUnmount(() => observer?.disconnect());
           <span>合计</span>
           <strong>{{ formatCurrency(cartStore.totalAmount) }}</strong>
         </div>
-        <el-button type="primary" size="large" :disabled="!cartItems.length" @click="checkoutVisible = true">
+        <el-button type="primary" size="large" :disabled="!cartItems.length" @click="openCheckout">
           去结算
         </el-button>
       </aside>
@@ -273,13 +312,52 @@ onBeforeUnmount(() => observer?.disconnect());
       </template>
     </el-dialog>
 
-    <div class="mobile-cart-bar glass-card">
-      <div>
-        <strong>{{ cartStore.totalCount }} 件商品</strong>
-        <p>{{ formatCurrency(cartStore.totalAmount) }}</p>
+    <el-drawer
+      v-model="mobileCartVisible"
+      direction="btt"
+      size="72%"
+      :with-header="false"
+      class="mobile-cart-drawer"
+    >
+      <div class="mobile-cart-sheet">
+        <div class="mobile-sheet-handle"></div>
+        <div class="cart-header">
+          <h2 class="section-title">购物车预览</h2>
+          <el-button link @click="cartStore.clear()">清空</el-button>
+        </div>
+        <div v-if="cartItems.length" class="cart-list mobile-cart-list">
+          <div v-for="item in cartItems" :key="item.id" class="cart-item">
+            <div>
+              <strong>{{ item.name }}</strong>
+              <p>{{ formatCurrency(item.price) }}</p>
+            </div>
+            <el-input-number
+              :model-value="item.quantity"
+              :min="0"
+              size="small"
+              @change="(value) => cartStore.updateQuantity(item.id, value)"
+            />
+          </div>
+        </div>
+        <el-empty v-else description="还没有选择菜品" />
+        <div class="cart-summary mobile-cart-summary">
+          <span>合计</span>
+          <strong>{{ formatCurrency(cartStore.totalAmount) }}</strong>
+        </div>
+        <el-button type="primary" size="large" :disabled="!cartItems.length" @click="openCheckout">去结算</el-button>
       </div>
-      <el-button type="primary" :disabled="!cartItems.length" @click="checkoutVisible = true">去结算</el-button>
-    </div>
+    </el-drawer>
+
+    <button class="mobile-cart-bar glass-card" type="button" @click="mobileCartVisible = true">
+      <div class="mobile-cart-copy">
+        <strong>{{ cartStore.totalCount }} 件商品</strong>
+        <p>{{ cartItems.length ? "点此预览购物车" : "先加入喜欢的菜品" }}</p>
+      </div>
+      <div class="mobile-cart-meta">
+        <strong>{{ formatCurrency(cartStore.totalAmount) }}</strong>
+        <span>查看</span>
+      </div>
+    </button>
   </div>
 </template>
 
@@ -350,6 +428,7 @@ onBeforeUnmount(() => observer?.disconnect());
 .sidebar {
   position: sticky;
   top: 20px;
+  z-index: 12;
 }
 
 .category-menu {
@@ -357,9 +436,23 @@ onBeforeUnmount(() => observer?.disconnect());
   background: transparent;
 }
 
+.category-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.category-scroll::-webkit-scrollbar {
+  display: none;
+}
+
 .menu-area {
   display: grid;
   gap: 18px;
+}
+
+.category-card {
+  scroll-margin-top: 92px;
 }
 
 .category-header,
@@ -453,6 +546,31 @@ onBeforeUnmount(() => observer?.disconnect());
   display: none;
 }
 
+.mobile-cart-sheet {
+  display: grid;
+  gap: 16px;
+  height: 100%;
+  padding: 12px 4px 4px;
+}
+
+.mobile-sheet-handle {
+  width: 52px;
+  height: 5px;
+  margin: 0 auto;
+  border-radius: 999px;
+  background: rgba(143, 52, 24, 0.18);
+}
+
+.mobile-cart-list {
+  align-content: start;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.mobile-cart-summary {
+  margin-top: auto;
+}
+
 @media (max-width: 1024px) {
   .hero,
   .content-grid {
@@ -499,29 +617,78 @@ onBeforeUnmount(() => observer?.disconnect());
   }
 
   .sidebar {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
+    position: sticky;
+    top: 10px;
+    display: grid;
+    gap: 8px;
+    padding: 10px 12px 8px;
+    border-radius: 18px;
+    background: linear-gradient(180deg, rgba(255, 248, 244, 0.94), rgba(255, 255, 255, 0.82));
+    box-shadow: 0 10px 26px rgba(143, 52, 24, 0.08);
+    backdrop-filter: blur(18px);
+  }
+
+  .sidebar::before,
+  .sidebar::after {
+    content: "";
+    position: absolute;
+    top: 40px;
+    bottom: 8px;
+    width: 18px;
+    z-index: 2;
+    pointer-events: none;
+  }
+
+  .sidebar::before {
+    left: 0;
+    background: linear-gradient(90deg, rgba(255, 248, 244, 0.96), rgba(255, 248, 244, 0));
+  }
+
+  .sidebar::after {
+    right: 0;
+    background: linear-gradient(270deg, rgba(255, 248, 244, 0.96), rgba(255, 248, 244, 0));
   }
 
   .category-menu {
     display: flex;
     gap: 10px;
     width: max-content;
-    padding-bottom: 4px;
+    padding: 0 6px 2px;
+  }
+
+  .sidebar .section-title {
+    margin-bottom: 2px;
+    font-size: 13px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--soft);
   }
 
   .category-menu :deep(.el-menu-item) {
-    height: 40px;
-    line-height: 40px;
+    height: 36px;
+    line-height: 36px;
+    min-width: max-content;
     border-radius: 999px;
-    padding: 0 16px;
-    background: rgba(255, 255, 255, 0.62);
+    padding: 0 14px;
+    font-size: 14px;
+    background: rgba(255, 255, 255, 0.78);
+    color: var(--text);
     border-bottom: 0;
+    box-shadow: inset 0 0 0 1px rgba(143, 52, 24, 0.08);
+    transition:
+      transform 0.2s ease,
+      background-color 0.2s ease,
+      color 0.2s ease,
+      box-shadow 0.2s ease;
   }
 
   .category-menu :deep(.el-menu-item.is-active) {
-    background: rgba(199, 91, 57, 0.14);
+    background: linear-gradient(135deg, rgba(199, 91, 57, 0.18), rgba(237, 164, 83, 0.22));
     color: var(--brand-deep);
+    box-shadow:
+      inset 0 0 0 1px rgba(199, 91, 57, 0.14),
+      0 6px 14px rgba(199, 91, 57, 0.12);
+    transform: translateY(-1px);
   }
 
   .dish-card img {
@@ -557,12 +724,36 @@ onBeforeUnmount(() => observer?.disconnect());
     align-items: center;
     gap: 16px;
     padding: 14px 16px;
+    border: 0;
     backdrop-filter: blur(18px);
+    text-align: left;
   }
 
-  .mobile-cart-bar p {
+  .mobile-cart-copy p {
     margin: 4px 0 0;
     color: var(--soft);
+  }
+
+  .mobile-cart-meta {
+    display: grid;
+    justify-items: end;
+    gap: 4px;
+    color: var(--brand-deep);
+  }
+
+  .mobile-cart-meta span {
+    font-size: 13px;
+    color: var(--soft);
+  }
+
+  .mobile-cart-drawer :deep(.el-drawer) {
+    border-radius: 24px 24px 0 0;
+    padding: 0 16px 20px;
+  }
+
+  .mobile-cart-drawer :deep(.el-drawer__body) {
+    padding: 0;
+    overflow: hidden;
   }
 }
 </style>
