@@ -9,7 +9,9 @@ export const useCartStore = defineStore("cart", {
   getters: {
     totalCount: (state) => state.items.reduce((sum, item) => sum + item.quantity, 0),
     totalAmount: (state) =>
-      state.items.reduce((sum, item) => sum + item.quantity * Number(item.price), 0)
+      state.items.reduce((sum, item) => sum + item.quantity * Number(item.price), 0),
+    isEmpty: (state) => !state.items.length,
+    canCheckout: (state) => state.items.length > 0
   },
   actions: {
     persist() {

@@ -15,9 +15,13 @@
 
 ## 启动
 
-1. 在根目录执行 `npm run install:all`
-2. 启动后端：`npm run dev:server`
-3. 启动前端：`npm run dev:client`
+1. 在根目录执行 `npm run dev`
+2. 脚本会自动检查并安装前后端依赖，然后同时启动前端和后端
+
+如果只想分别启动，也可以使用：
+
+- `npm run dev:server`
+- `npm run dev:client`
 
 默认后端端口为 `3000`，前端开发端口为 `5173`。
 

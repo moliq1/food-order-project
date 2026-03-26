@@ -23,25 +23,29 @@ async function submit() {
 
 <template>
   <div class="login-page">
-    <div class="login-card glass-card">
-      <p class="kicker">Merchant Console</p>
-      <h1 class="page-title">餐饮点单后台</h1>
-      <p class="page-subtitle">登录后可进入商家后台和接单页面，默认账号已预置。</p>
+    <div class="page-shell login-shell">
+      <section class="glass-card login-card">
+        <div class="login-copy">
+          <span class="status-chip warning">店员入口</span>
+          <h1 class="page-title">餐饮管理登录</h1>
+          <p class="page-subtitle">登录后可以进入商家后台和接单工作台，已预置默认账号。</p>
+        </div>
 
-      <el-form :model="form" label-position="top" @submit.prevent="submit">
-        <el-form-item label="用户名">
-          <el-input v-model="form.username" placeholder="请输入用户名" />
-        </el-form-item>
-        <el-form-item label="密码">
-          <el-input v-model="form.password" type="password" show-password placeholder="请输入密码" />
-        </el-form-item>
-        <el-button type="primary" class="submit" :loading="loading.value" @click="submit">登录</el-button>
-      </el-form>
+        <el-form :model="form" label-position="top" class="compact-form" @submit.prevent="submit">
+          <el-form-item label="用户名">
+            <el-input v-model="form.username" placeholder="请输入用户名" />
+          </el-form-item>
+          <el-form-item label="密码">
+            <el-input v-model="form.password" type="password" show-password placeholder="请输入密码" />
+          </el-form-item>
+          <el-button type="primary" class="submit" :loading="loading.value" @click="submit">登录后台</el-button>
+        </el-form>
 
-      <div class="links">
-        <router-link to="/customer">前往用户点餐页</router-link>
-        <router-link to="/merchant">前往商家接单页</router-link>
-      </div>
+        <div class="quick-links">
+          <router-link to="/customer">前往顾客点餐</router-link>
+          <router-link to="/merchant">前往接单工作台</router-link>
+        </div>
+      </section>
     </div>
   </div>
 </template>
@@ -49,55 +53,34 @@ async function submit() {
 <style scoped>
 .login-page {
   min-height: 100vh;
-  display: grid;
-  place-items: center;
-  padding: 24px;
-  background:
-    radial-gradient(circle at top right, rgba(199, 91, 57, 0.24), transparent 30%),
-    radial-gradient(circle at bottom left, rgba(143, 52, 24, 0.18), transparent 24%);
+}
+
+.login-shell {
+  display: flex;
+  align-items: center;
 }
 
 .login-card {
-  width: min(100%, 480px);
-  padding: 32px;
+  width: 100%;
+  padding: 18px;
+  display: grid;
+  gap: 18px;
 }
 
-.kicker {
-  margin: 0 0 10px;
-  color: var(--brand);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
+.login-copy {
+  display: grid;
+  gap: 12px;
 }
 
 .submit {
   width: 100%;
-  height: 44px;
-  margin-top: 8px;
 }
 
-.links {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 18px;
+.quick-links {
+  display: grid;
+  gap: 12px;
+  text-align: center;
   color: var(--soft);
-}
-
-@media (max-width: 768px) {
-  .login-page {
-    align-items: start;
-    padding: 18px 14px;
-  }
-
-  .login-card {
-    width: 100%;
-    padding: 22px 18px;
-    margin-top: 6vh;
-  }
-
-  .links {
-    flex-direction: column;
-    gap: 10px;
-  }
+  font-size: 14px;
 }
 </style>
