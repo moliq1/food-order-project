@@ -1,4 +1,5 @@
 import path from "path";
+import fs from "fs";
 import { fileURLToPath } from "url";
 import sqlite3 from "sqlite3";
 import bcrypt from "bcryptjs";
@@ -7,8 +8,11 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const databasePath =
   process.env.DATABASE_PATH || path.resolve(__dirname, "../database/food_order.db");
+const databaseDir = path.dirname(databasePath);
 
 sqlite3.verbose();
+
+fs.mkdirSync(databaseDir, { recursive: true });
 
 export const db = new sqlite3.Database(databasePath);
 

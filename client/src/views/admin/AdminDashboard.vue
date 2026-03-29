@@ -8,13 +8,17 @@ import { formatCurrency, formatTime, statusText } from "../../utils/format";
 
 const router = useRouter();
 const authStore = useAuthStore();
-const activeTab = ref("stats");
+
+const activeAdminSection = ref("overview");
+const filterSheetVisible = ref(false);
+const page = ref(1);
+const total = ref(0);
+
 const stats = ref({ today_orders: 0, today_revenue: 0, pending_count: 0 });
 const categories = ref([]);
 const dishes = ref([]);
 const orders = ref([]);
-const total = ref(0);
-const page = ref(1);
+
 const filters = reactive({ status: "", start_date: "", end_date: "" });
 
 const categoryDialog = reactive({ visible: false, form: { id: null, name: "", sort_order: 0 } });
@@ -32,6 +36,7 @@ async function loadAll() {
     adminApi.dishes(),
     adminApi.orders({ page: page.value, limit: 20, ...filters })
   ]);
+
   stats.value = statsRes.data;
   categories.value = categoryRes.data;
   dishes.value = dishRes.data;
@@ -111,6 +116,18 @@ async function handleOrder(id, action) {
   await loadAll();
 }
 
+async function applyFilters() {
+  page.value = 1;
+  filterSheetVisible.value = false;
+  await loadAll();
+}
+
+async function changePage(nextPage) {
+  if (nextPage < 1) return;
+  page.value = nextPage;
+  await loadAll();
+}
+
 function logout() {
   authStore.logout();
   router.push("/login");
@@ -121,85 +138,193 @@ onMounted(loadAll);
 
 <template>
   <div class="page-shell admin-page">
-    <header class="glass-card admin-header">
-      <div>
-        <p class="hero-tag">Admin Studio</p>
-        <h1 class="page-title">商家后台管理</h1>
-        <p class="page-subtitle">统一管理分类、菜品、订单与今日营业概况。</p>
+    <section class="glass-card admin-hero">
+      <div class="hero-header">
+        <div>
+          <h1 class="page-title">商家后台</h1>
+          <p class="page-subtitle">默认按手机管理场景排布，概览、菜品、订单都能单手完成高频操作。</p>
+        </div>
+        <el-button plain @click="logout">退出</el-button>
       </div>
-      <div class="admin-actions">
-        <router-link to="/merchant">接单端</router-link>
-        <el-button plain @click="logout">退出登录</el-button>
+
+      <div class="app-pill-group mobile-scroll">
+        <button
+          class="app-pill"
+          :class="{ 'is-active': activeAdminSection === 'overview' }"
+          type="button"
+          @click="activeAdminSection = 'overview'"
+        >
+          概览
+        </button>
+        <button
+          class="app-pill"
+          :class="{ 'is-active': activeAdminSection === 'categories' }"
+          type="button"
+          @click="activeAdminSection = 'categories'"
+        >
+          分类
+        </button>
+        <button
+          class="app-pill"
+          :class="{ 'is-active': activeAdminSection === 'dishes' }"
+          type="button"
+          @click="activeAdminSection = 'dishes'"
+        >
+          菜品
+        </button>
+        <button
+          class="app-pill"
+          :class="{ 'is-active': activeAdminSection === 'orders' }"
+          type="button"
+          @click="activeAdminSection = 'orders'"
+        >
+          订单
+        </button>
       </div>
-    </header>
+    </section>
 
-    <el-tabs v-model="activeTab" class="glass-card tabs-shell">
-      <el-tab-pane label="数据统计" name="stats">
-        <div class="stats-grid">
-          <div class="stat-card">
-            <span>今日订单</span>
-            <strong>{{ stats.today_orders }}</strong>
+    <section v-if="activeAdminSection === 'overview'" class="stats-grid">
+      <div class="stat-card glass-card">
+        <span>今日订单</span>
+        <strong>{{ stats.today_orders }}</strong>
+      </div>
+      <div class="stat-card glass-card">
+        <span>今日营业额</span>
+        <strong>{{ formatCurrency(stats.today_revenue) }}</strong>
+      </div>
+      <div class="stat-card glass-card">
+        <span>待处理订单</span>
+        <strong>{{ stats.pending_count }}</strong>
+      </div>
+      <router-link class="shortcut-card glass-card" to="/merchant">
+        <strong>进入接单工作台</strong>
+        <span>处理待接单与制作中订单</span>
+      </router-link>
+    </section>
+
+    <section v-else-if="activeAdminSection === 'categories'" class="section-block">
+      <div class="section-toolbar">
+        <div>
+          <h2 class="section-title">分类管理</h2>
+          <p class="page-subtitle">按卡片查看和调整顺序。</p>
+        </div>
+        <el-button type="primary" @click="openCategoryDialog()">新增</el-button>
+      </div>
+
+      <div class="card-list">
+        <article v-for="category in categories" :key="category.id" class="admin-card glass-card">
+          <div class="admin-card-head">
+            <div>
+              <strong>{{ category.name }}</strong>
+              <p>排序 {{ category.sort_order }}</p>
+            </div>
           </div>
-          <div class="stat-card">
-            <span>今日营业额</span>
-            <strong>{{ formatCurrency(stats.today_revenue) }}</strong>
+          <div class="admin-card-actions">
+            <el-button @click="openCategoryDialog(category)">编辑</el-button>
+            <el-button type="danger" plain @click="removeCategory(category.id)">删除</el-button>
           </div>
-          <div class="stat-card">
-            <span>待处理订单</span>
-            <strong>{{ stats.pending_count }}</strong>
+        </article>
+      </div>
+    </section>
+
+    <section v-else-if="activeAdminSection === 'dishes'" class="section-block">
+      <div class="section-toolbar">
+        <div>
+          <h2 class="section-title">菜品管理</h2>
+          <p class="page-subtitle">图片、分类、价格和上架状态集中在一张卡片里。</p>
+        </div>
+        <el-button type="primary" @click="openDishDialog()">新增</el-button>
+      </div>
+
+      <div class="card-list">
+        <article v-for="dish in dishes" :key="dish.id" class="admin-card dish-card glass-card">
+          <img :src="dish.image_url" :alt="dish.name" />
+          <div class="dish-card-copy">
+            <div class="admin-card-head">
+              <div>
+                <strong>{{ dish.name }}</strong>
+                <p>{{ dish.category_name }} · {{ formatCurrency(dish.price) }}</p>
+              </div>
+              <span class="status-chip" :class="dish.is_available ? 'success' : 'muted'">
+                {{ dish.is_available ? "上架中" : "已下架" }}
+              </span>
+            </div>
+            <p class="dish-desc">{{ dish.description || "暂无描述" }}</p>
+            <div class="admin-card-actions stack">
+              <el-button @click="openDishDialog(dish)">编辑</el-button>
+              <el-button @click="toggleDish(dish.id)">{{ dish.is_available ? "下架" : "上架" }}</el-button>
+              <el-button type="danger" plain @click="removeDish(dish.id)">删除</el-button>
+            </div>
           </div>
-        </div>
-      </el-tab-pane>
+        </article>
+      </div>
+    </section>
 
-      <el-tab-pane label="分类管理" name="categories">
-        <div class="section-head">
-          <h2 class="section-title">菜品分类</h2>
-          <el-button type="primary" @click="openCategoryDialog()">新增分类</el-button>
+    <section v-else class="section-block">
+      <div class="section-toolbar">
+        <div>
+          <h2 class="section-title">订单管理</h2>
+          <p class="page-subtitle">筛选收进底部面板，列表改为可扫读订单卡片。</p>
         </div>
-        <div class="mobile-scroll table-wrap">
-          <el-table :data="categories">
-            <el-table-column prop="name" label="名称" min-width="160" />
-            <el-table-column prop="sort_order" label="排序" width="120" />
-            <el-table-column label="操作" width="180">
-              <template #default="{ row }">
-                <el-button link @click="openCategoryDialog(row)">编辑</el-button>
-                <el-button link type="danger" @click="removeCategory(row.id)">删除</el-button>
-              </template>
-            </el-table-column>
-          </el-table>
-        </div>
-      </el-tab-pane>
+        <el-button @click="filterSheetVisible = true">筛选</el-button>
+      </div>
 
-      <el-tab-pane label="菜品管理" name="dishes">
-        <div class="section-head">
-          <h2 class="section-title">菜品列表</h2>
-          <el-button type="primary" @click="openDishDialog()">新增菜品</el-button>
-        </div>
-        <div class="mobile-scroll table-wrap">
-          <el-table :data="dishes">
-            <el-table-column prop="name" label="菜品" min-width="160" />
-            <el-table-column prop="category_name" label="分类" min-width="120" />
-            <el-table-column prop="price" label="价格" width="120">
-              <template #default="{ row }">{{ formatCurrency(row.price) }}</template>
-            </el-table-column>
-            <el-table-column label="状态" width="110">
-              <template #default="{ row }">
-                <el-tag :type="row.is_available ? 'success' : 'info'">{{ row.is_available ? "上架" : "下架" }}</el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column label="操作" width="220">
-              <template #default="{ row }">
-                <el-button link @click="openDishDialog(row)">编辑</el-button>
-                <el-button link @click="toggleDish(row.id)">{{ row.is_available ? "下架" : "上架" }}</el-button>
-                <el-button link type="danger" @click="removeDish(row.id)">删除</el-button>
-              </template>
-            </el-table-column>
-          </el-table>
-        </div>
-      </el-tab-pane>
+      <div class="card-list">
+        <article v-for="order in orders" :key="order.id" class="admin-card glass-card">
+          <div class="admin-card-head">
+            <div>
+              <strong>{{ order.customer_name }} · {{ order.customer_phone }}</strong>
+              <p>{{ order.order_no }}</p>
+            </div>
+            <span
+              class="status-chip"
+              :class="order.status === 'pending' ? 'warning' : order.status === 'accepted' ? 'success' : 'muted'"
+            >
+              {{ statusText(order.status) }}
+            </span>
+          </div>
 
-      <el-tab-pane label="订单管理" name="orders">
-        <div class="filters">
+          <div class="order-summary">
+            <span>{{ formatTime(order.created_at) }}</span>
+            <strong>{{ formatCurrency(order.total_amount) }}</strong>
+          </div>
+
+          <div class="admin-card-actions stack">
+            <el-button v-if="order.status === 'pending'" type="success" @click="handleOrder(order.id, 'accept')">接单</el-button>
+            <el-button v-if="order.status === 'pending'" type="danger" plain @click="handleOrder(order.id, 'reject')">拒绝</el-button>
+            <el-button v-if="order.status === 'accepted'" type="primary" @click="handleOrder(order.id, 'complete')">完成</el-button>
+            <el-button
+              v-if="['pending', 'accepted'].includes(order.status)"
+              type="warning"
+              plain
+              @click="handleOrder(order.id, 'cancel')"
+            >
+              取消
+            </el-button>
+          </div>
+        </article>
+      </div>
+
+      <div class="pager glass-card">
+        <el-button plain :disabled="page <= 1" @click="changePage(page - 1)">上一页</el-button>
+        <span>第 {{ page }} 页 / 共 {{ Math.max(1, Math.ceil(total / 20)) }} 页</span>
+        <el-button plain :disabled="page >= Math.ceil(total / 20) || total === 0" @click="changePage(page + 1)">下一页</el-button>
+      </div>
+    </section>
+
+    <el-drawer
+      v-model="filterSheetVisible"
+      direction="btt"
+      size="64%"
+      :with-header="false"
+      class="mobile-sheet"
+    >
+      <div class="app-sheet">
+        <div class="sheet-handle"></div>
+        <div class="sheet-title">
+          <strong>订单筛选</strong>
+        </div>
+        <div class="compact-form">
           <el-select v-model="filters.status" clearable placeholder="状态">
             <el-option label="待接单" value="pending" />
             <el-option label="已接单" value="accepted" />
@@ -209,195 +334,201 @@ onMounted(loadAll);
           </el-select>
           <el-date-picker v-model="filters.start_date" type="date" value-format="YYYY-MM-DD" placeholder="开始日期" />
           <el-date-picker v-model="filters.end_date" type="date" value-format="YYYY-MM-DD" placeholder="结束日期" />
-          <el-button type="primary" @click="loadAll">筛选</el-button>
+          <el-button type="primary" @click="applyFilters">应用筛选</el-button>
         </div>
-        <div class="mobile-scroll table-wrap">
-          <el-table :data="orders">
-            <el-table-column prop="order_no" label="订单号" width="180" />
-            <el-table-column prop="customer_name" label="顾客" width="120" />
-            <el-table-column prop="customer_phone" label="电话" width="150" />
-            <el-table-column prop="total_amount" label="金额" width="120">
-              <template #default="{ row }">{{ formatCurrency(row.total_amount) }}</template>
-            </el-table-column>
-            <el-table-column prop="status" label="状态" width="120">
-              <template #default="{ row }">{{ statusText(row.status) }}</template>
-            </el-table-column>
-            <el-table-column prop="created_at" label="时间" min-width="180">
-              <template #default="{ row }">{{ formatTime(row.created_at) }}</template>
-            </el-table-column>
-            <el-table-column label="操作" width="240">
-              <template #default="{ row }">
-                <el-button v-if="row.status === 'pending'" link @click="handleOrder(row.id, 'accept')">接单</el-button>
-                <el-button v-if="row.status === 'pending'" link type="danger" @click="handleOrder(row.id, 'reject')">拒绝</el-button>
-                <el-button v-if="row.status === 'accepted'" link type="success" @click="handleOrder(row.id, 'complete')">完成</el-button>
-                <el-button v-if="['pending', 'accepted'].includes(row.status)" link type="warning" @click="handleOrder(row.id, 'cancel')">取消</el-button>
-              </template>
-            </el-table-column>
-          </el-table>
+      </div>
+    </el-drawer>
+
+    <el-drawer
+      v-model="categoryDialog.visible"
+      direction="btt"
+      size="54%"
+      :with-header="false"
+      class="mobile-sheet"
+    >
+      <div class="app-sheet">
+        <div class="sheet-handle"></div>
+        <div class="sheet-title">
+          <strong>{{ categoryDialog.form.id ? "编辑分类" : "新增分类" }}</strong>
         </div>
-        <el-pagination
-          v-model:current-page="page"
-          class="pagination"
-          background
-          layout="prev, pager, next, total"
-          :page-size="20"
-          :total="total"
-          @current-change="loadAll"
-        />
-      </el-tab-pane>
-    </el-tabs>
+        <el-form :model="categoryDialog.form" label-position="top" class="compact-form">
+          <el-form-item label="名称">
+            <el-input v-model="categoryDialog.form.name" />
+          </el-form-item>
+          <el-form-item label="排序">
+            <el-input-number v-model="categoryDialog.form.sort_order" :min="0" />
+          </el-form-item>
+        </el-form>
+        <div class="sheet-total">
+          <span></span>
+          <el-button type="primary" @click="saveCategory">保存</el-button>
+        </div>
+      </div>
+    </el-drawer>
 
-    <el-dialog v-model="categoryDialog.visible" title="分类信息" width="420px">
-      <el-form :model="categoryDialog.form" label-position="top">
-        <el-form-item label="名称">
-          <el-input v-model="categoryDialog.form.name" />
-        </el-form-item>
-        <el-form-item label="排序">
-          <el-input-number v-model="categoryDialog.form.sort_order" :min="0" />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="categoryDialog.visible = false">取消</el-button>
-        <el-button type="primary" @click="saveCategory">保存</el-button>
-      </template>
-    </el-dialog>
-
-    <el-dialog v-model="dishDialog.visible" title="菜品信息" width="620px">
-      <el-form :model="dishDialog.form" label-position="top">
-        <el-form-item label="菜品名称">
-          <el-input v-model="dishDialog.form.name" />
-        </el-form-item>
-        <el-form-item label="价格">
-          <el-input-number v-model="dishDialog.form.price" :min="0" :step="1" />
-        </el-form-item>
-        <el-form-item label="分类">
-          <el-select v-model="dishDialog.form.category_id">
-            <el-option v-for="item in categoryOptions" :key="item.value" :label="item.label" :value="item.value" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="描述">
-          <el-input v-model="dishDialog.form.description" type="textarea" :rows="3" />
-        </el-form-item>
-        <el-form-item label="图片">
-          <el-input v-model="dishDialog.form.image_url" placeholder="图片链接或上传图片" />
-          <el-upload :show-file-list="false" :auto-upload="false" accept="image/*" :on-change="uploadImage">
-            <el-button plain>上传图片</el-button>
-          </el-upload>
-        </el-form-item>
-        <el-form-item label="上架状态">
-          <el-switch v-model="dishDialog.form.is_available" :active-value="1" :inactive-value="0" />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="dishDialog.visible = false">取消</el-button>
-        <el-button type="primary" @click="saveDish">保存</el-button>
-      </template>
-    </el-dialog>
+    <el-drawer
+      v-model="dishDialog.visible"
+      direction="btt"
+      size="88%"
+      :with-header="false"
+      class="mobile-sheet"
+    >
+      <div class="app-sheet">
+        <div class="sheet-handle"></div>
+        <div class="sheet-title">
+          <strong>{{ dishDialog.form.id ? "编辑菜品" : "新增菜品" }}</strong>
+        </div>
+        <el-form :model="dishDialog.form" label-position="top" class="compact-form">
+          <el-form-item label="菜品名称">
+            <el-input v-model="dishDialog.form.name" />
+          </el-form-item>
+          <el-form-item label="价格">
+            <el-input-number v-model="dishDialog.form.price" :min="0" :step="1" />
+          </el-form-item>
+          <el-form-item label="分类">
+            <el-select v-model="dishDialog.form.category_id">
+              <el-option v-for="item in categoryOptions" :key="item.value" :label="item.label" :value="item.value" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="描述">
+            <el-input v-model="dishDialog.form.description" type="textarea" :rows="3" />
+          </el-form-item>
+          <el-form-item label="图片">
+            <el-input v-model="dishDialog.form.image_url" placeholder="图片链接或上传图片" />
+            <el-upload :show-file-list="false" :auto-upload="false" accept="image/*" :on-change="uploadImage">
+              <el-button plain>上传图片</el-button>
+            </el-upload>
+          </el-form-item>
+          <el-form-item label="上架状态">
+            <el-switch v-model="dishDialog.form.is_available" :active-value="1" :inactive-value="0" />
+          </el-form-item>
+        </el-form>
+        <div class="sheet-total">
+          <span></span>
+          <el-button type="primary" @click="saveDish">保存</el-button>
+        </div>
+      </div>
+    </el-drawer>
   </div>
 </template>
 
 <style scoped>
 .admin-page {
   display: grid;
-  gap: 24px;
+  gap: 14px;
 }
 
-.admin-header,
-.tabs-shell {
-  padding: 24px;
+.admin-hero,
+.stat-card,
+.shortcut-card,
+.admin-card,
+.pager {
+  padding: 16px;
 }
 
-.admin-header,
-.section-head,
-.filters,
-.admin-actions {
+.admin-hero,
+.section-block,
+.stat-card,
+.shortcut-card,
+.admin-card {
+  display: grid;
+  gap: 14px;
+}
+
+.hero-header,
+.section-toolbar,
+.admin-card-head,
+.order-summary,
+.pager,
+.sheet-total {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  gap: 16px;
-}
-
-.hero-tag {
-  color: var(--brand);
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 18px;
+  gap: 12px;
 }
 
-.table-wrap {
-  border-radius: 18px;
-}
-
-.stat-card {
-  display: grid;
-  gap: 10px;
-  padding: 24px;
-  border-radius: 22px;
-  background: rgba(255, 255, 255, 0.56);
+.stat-card span,
+.shortcut-card span,
+.admin-card-head p,
+.dish-desc,
+.order-summary span {
+  margin: 0;
+  color: var(--soft);
+  font-size: 12px;
+  line-height: 1.55;
 }
 
 .stat-card strong {
-  font-size: 36px;
+  font-size: 28px;
 }
 
-.filters,
-.pagination {
-  margin: 12px 0 18px;
+.shortcut-card strong,
+.admin-card-head strong,
+.order-summary strong {
+  font-size: 16px;
 }
 
-.filters > * {
-  min-width: 0;
+.shortcut-card {
+  color: inherit;
 }
 
-@media (max-width: 900px) {
-  .tabs-shell {
-    padding: 16px;
-  }
-
-  .admin-actions {
-    width: 100%;
-    justify-content: space-between;
-  }
-
-  .table-wrap :deep(.el-table) {
-    min-width: 640px;
-  }
-
-  .pagination {
-    overflow-x: auto;
-  }
+.admin-card-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
-@media (max-width: 900px) {
-  .admin-header,
-  .section-head,
-  .filters {
-    flex-direction: column;
-    align-items: stretch;
+.admin-card-actions.stack {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.dish-card {
+  grid-template-columns: 92px minmax(0, 1fr);
+  align-items: start;
+}
+
+.dish-card img {
+  width: 92px;
+  height: 92px;
+  object-fit: cover;
+  border-radius: var(--radius-md);
+}
+
+.dish-card-copy {
+  display: grid;
+  gap: 12px;
+}
+
+.order-summary {
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.pager {
+  border-radius: var(--radius-lg);
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid var(--line);
+}
+
+@media (min-width: 768px) {
+  .admin-page {
+    width: min(100%, 960px);
+    margin: 0 auto;
   }
 
   .stats-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 768px) {
-  .admin-page {
-    gap: 16px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .admin-header {
-    padding: 18px 16px;
-  }
-
-  .filters {
-    gap: 10px;
+  .card-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 </style>
