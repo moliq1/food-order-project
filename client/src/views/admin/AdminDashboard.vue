@@ -117,6 +117,13 @@ async function handleOrder(id, action) {
   await loadAll();
 }
 
+async function removeOrder(id) {
+  await ElMessageBox.confirm("删除后无法恢复，订单记录和明细都会被移除。", "提示");
+  await adminApi.deleteOrder(id);
+  ElMessage.success("订单已删除");
+  await loadAll();
+}
+
 async function applyFilters() {
   page.value = 1;
   filterSheetVisible.value = false;
@@ -302,6 +309,7 @@ onMounted(loadAll);
             >
               取消
             </el-button>
+            <el-button type="danger" plain @click="removeOrder(order.id)">删除</el-button>
           </div>
         </article>
       </div>
@@ -486,7 +494,7 @@ onMounted(loadAll);
 
 .admin-card-actions.stack {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .dish-card {

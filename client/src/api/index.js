@@ -33,6 +33,7 @@ export const adminApi = {
   rejectOrder: (id) => http.post(`/admin/orders/${id}/reject`),
   completeOrder: (id) => http.post(`/admin/orders/${id}/complete`),
   cancelOrder: (id) => http.post(`/admin/orders/${id}/cancel`),
+  deleteOrder: (id) => http.delete(`/admin/orders/${id}`),
   stats: () => http.get("/admin/stats"),
   upload: (formData) =>
     http.post("/admin/upload", formData, {

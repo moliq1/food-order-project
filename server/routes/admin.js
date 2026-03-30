@@ -239,6 +239,17 @@ router.post("/orders/:id/cancel", async (req, res) => {
   res.json({ code: 0, message: "success", data: true });
 });
 
+router.delete("/orders/:id", async (req, res) => {
+  const order = await get("SELECT id FROM orders WHERE id = ?", [req.params.id]);
+  if (!order) {
+    return res.status(404).json({ code: 1001, message: "订单不存在", data: null });
+  }
+
+  await run("DELETE FROM order_items WHERE order_id = ?", [req.params.id]);
+  await run("DELETE FROM orders WHERE id = ?", [req.params.id]);
+  res.json({ code: 0, message: "success", data: true });
+});
+
 router.get("/stats", async (_req, res) => {
   const todayOrders = await get("SELECT COUNT(*) AS count FROM orders WHERE date(created_at) = date('now', 'localtime')");
   const todayRevenue = await get(

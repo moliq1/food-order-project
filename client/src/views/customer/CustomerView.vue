@@ -14,12 +14,27 @@ const checkoutSheetVisible = ref(false);
 const orderEntryVisible = ref(false);
 const activeSection = ref("menu");
 const orderFormRef = ref(null);
+const storeHeroRef = ref(null);
 const categoryScrollRef = ref(null);
+const categoryStripRef = ref(null);
+const categoryPlaceholderHeight = ref(0);
+const isCategoryPinned = ref(false);
 const categorySections = new Map();
 const categoryItems = new Map();
 const orderResults = ref([]);
+const previewVisible = ref(false);
+const previewImageUrl = ref("");
+const previewImageAlt = ref("");
+const previewScale = ref(1);
+const previewOffset = reactive({ x: 0, y: 0 });
 const orderQuery = reactive({ customer_name: "", phone: "" });
 const orderForm = reactive({ customer_name: "", customer_phone: "", remark: "" });
+let pinchStartDistance = 0;
+let pinchStartScale = 1;
+let dragStartX = 0;
+let dragStartY = 0;
+let dragOriginX = 0;
+let dragOriginY = 0;
 let observer;
 
 const cartItems = computed(() => cartStore.items);
@@ -77,6 +92,7 @@ async function loadMenu() {
   categories.value = response.data;
   activeCategory.value = response.data[0]?.id || null;
   await nextTick();
+  updateCategoryStripMetrics();
   setupCategoryObserver();
 }
 
@@ -110,11 +126,127 @@ function scrollToCategory(id) {
   });
 }
 
+function updateCategoryStripMetrics() {
+  categoryPlaceholderHeight.value = categoryStripRef.value?.offsetHeight || 0;
+}
+
+function updateCategoryPinnedState() {
+  const hero = storeHeroRef.value;
+  const strip = categoryStripRef.value;
+  if (!strip || !hero) {
+    return;
+  }
+
+  const pinnedTop = 8;
+  const heroBottom = hero.getBoundingClientRect().bottom;
+  const stripTop = strip.getBoundingClientRect().top;
+  isCategoryPinned.value = stripTop <= pinnedTop && heroBottom <= pinnedTop;
+}
+
 function scrollToTop() {
   window.scrollTo({
     top: 0,
     behavior: "smooth"
   });
+}
+
+function openImagePreview(dish) {
+  previewImageUrl.value = getDishImageUrl(dish);
+  previewImageAlt.value = dish.name;
+  previewScale.value = 1;
+  previewOffset.x = 0;
+  previewOffset.y = 0;
+  previewVisible.value = true;
+  document.body.style.overflow = "hidden";
+}
+
+function closeImagePreview() {
+  previewVisible.value = false;
+  previewScale.value = 1;
+  previewOffset.x = 0;
+  previewOffset.y = 0;
+  pinchStartDistance = 0;
+  pinchStartScale = 1;
+  dragStartX = 0;
+  dragStartY = 0;
+  dragOriginX = 0;
+  dragOriginY = 0;
+  document.body.style.overflow = "";
+}
+
+function getTouchDistance(touches) {
+  if (touches.length < 2) {
+    return 0;
+  }
+  const [firstTouch, secondTouch] = touches;
+  const deltaX = secondTouch.clientX - firstTouch.clientX;
+  const deltaY = secondTouch.clientY - firstTouch.clientY;
+  return Math.hypot(deltaX, deltaY);
+}
+
+function handlePreviewTouchStart(event) {
+  if (event.touches.length === 2) {
+    pinchStartDistance = getTouchDistance(event.touches);
+    pinchStartScale = previewScale.value;
+    dragOriginX = previewOffset.x;
+    dragOriginY = previewOffset.y;
+    return;
+  }
+  if (event.touches.length === 1 && previewScale.value > 1) {
+    dragStartX = event.touches[0].clientX;
+    dragStartY = event.touches[0].clientY;
+    dragOriginX = previewOffset.x;
+    dragOriginY = previewOffset.y;
+  }
+}
+
+function handlePreviewTouchMove(event) {
+  if (event.touches.length !== 2 || !pinchStartDistance) {
+    if (event.touches.length === 1 && previewScale.value > 1) {
+      event.preventDefault();
+      const touch = event.touches[0];
+      previewOffset.x = dragOriginX + touch.clientX - dragStartX;
+      previewOffset.y = dragOriginY + touch.clientY - dragStartY;
+    }
+    return;
+  }
+  event.preventDefault();
+  const nextDistance = getTouchDistance(event.touches);
+  const nextScale = pinchStartScale * (nextDistance / pinchStartDistance);
+  previewScale.value = Math.min(4, Math.max(1, nextScale));
+}
+
+function handlePreviewTouchEnd() {
+  if (previewScale.value < 1) {
+    previewScale.value = 1;
+  }
+  if (previewScale.value > 4) {
+    previewScale.value = 4;
+  }
+  if (pinchStartDistance && previewScale.value === 1) {
+    pinchStartDistance = 0;
+    pinchStartScale = 1;
+  }
+  if (previewScale.value === 1) {
+    previewOffset.x = 0;
+    previewOffset.y = 0;
+  }
+  if (pinchStartDistance && previewScale.value > 1) {
+    pinchStartDistance = 0;
+    pinchStartScale = previewScale.value;
+  }
+}
+
+function handlePreviewImageTap() {
+  if (previewScale.value > 1) {
+    previewScale.value = 1;
+    previewOffset.x = 0;
+    previewOffset.y = 0;
+    pinchStartDistance = 0;
+    pinchStartScale = 1;
+    return;
+  }
+  closeImagePreview();
 }
 
 function changeQuantity(item, delta) {
@@ -182,10 +314,18 @@ async function cancelOrder(order) {
 
 onMounted(async () => {
   await loadMenu();
+  updateCategoryPinnedState();
+  window.addEventListener("scroll", updateCategoryPinnedState, { passive: true });
+  window.addEventListener("resize", updateCategoryStripMetrics, { passive: true });
+  window.addEventListener("resize", updateCategoryPinnedState, { passive: true });
 });
 
 onBeforeUnmount(() => {
   observer?.disconnect();
+  window.removeEventListener("scroll", updateCategoryPinnedState);
+  window.removeEventListener("resize", updateCategoryStripMetrics);
+  window.removeEventListener("resize", updateCategoryPinnedState);
+  document.body.style.overflow = "";
 });
 
 watch(activeCategory, () => {
@@ -195,7 +335,7 @@ watch(activeCategory, () => {
 
 <template>
   <div class="page-shell customer-page">
-    <section class="store-hero glass-card">
+    <section ref="storeHeroRef" class="store-hero glass-card">
       <div class="store-topline">
         <span class="status-chip success">营业中</span>
         <button class="order-entry" type="button" @click="orderEntryVisible = true">订单</button>
@@ -220,7 +360,9 @@ watch(activeCategory, () => {
       </div>
     </section>
 
-    <section class="category-strip">
+    <div v-if="isCategoryPinned" class="category-strip-placeholder" :style="{ height: `${categoryPlaceholderHeight}px` }"></div>
+
+    <section ref="categoryStripRef" class="category-strip" :class="{ 'is-pinned': isCategoryPinned }">
       <div ref="categoryScrollRef" class="mobile-scroll category-scroll">
         <button
           v-for="category in categories"
@@ -252,7 +394,9 @@ watch(activeCategory, () => {
         </div>
 
         <article v-for="dish in category.dishes" :key="dish.id" class="dish-card glass-card">
-          <img :src="getDishImageUrl(dish)" :alt="dish.name" @error="(event) => handleDishImageError(event, dish.name)" />
+          <button class="dish-image-trigger" type="button" @click="openImagePreview(dish)">
+            <img :src="getDishImageUrl(dish)" :alt="dish.name" @error="(event) => handleDishImageError(event, dish.name)" />
+          </button>
           <div class="dish-copy">
             <div class="dish-copy-top">
               <div>
@@ -273,6 +417,28 @@ watch(activeCategory, () => {
     <div class="page-bottom-actions">
       <button class="back-to-top-link" type="button" @click="scrollToTop">回到顶部</button>
     </div>
+
+    <teleport to="body">
+      <div v-if="previewVisible" class="image-preview" @click.self="closeImagePreview">
+        <button class="image-preview-close" type="button" @click="closeImagePreview">关闭</button>
+        <div
+          class="image-preview-stage"
+          @touchstart="handlePreviewTouchStart"
+          @touchmove="handlePreviewTouchMove"
+          @touchend="handlePreviewTouchEnd"
+          @touchcancel="handlePreviewTouchEnd"
+        >
+          <img
+            class="image-preview-photo"
+            :src="previewImageUrl"
+            :alt="previewImageAlt"
+            :style="{ transform: `translate(${previewOffset.x}px, ${previewOffset.y}px) scale(${previewScale})` }"
+            @click.stop="handlePreviewImageTap"
+          />
+        </div>
+        <p class="image-preview-tip">支持双指放大缩小</p>
+      </div>
+    </teleport>
 
     <div class="action-bar customer-action-bar">
       <div class="action-bar-inner">
@@ -454,12 +620,24 @@ watch(activeCategory, () => {
 }
 
 .category-strip {
-  position: sticky;
-  top: 8px;
-  align-self: start;
+  position: relative;
   z-index: 24;
   padding: 6px 0;
   min-width: 0;
+}
+
+.category-strip.is-pinned {
+  position: fixed;
+  top: 8px;
+  left: 50%;
+  width: calc(100% - 32px);
+  max-width: calc(var(--app-max) - 32px);
+  transform: translateX(-50%);
+  z-index: 40;
+}
+
+.category-strip-placeholder {
+  width: 100%;
 }
 
 .category-scroll {
@@ -513,11 +691,19 @@ watch(activeCategory, () => {
   padding: 12px;
 }
 
-.dish-card img {
+.dish-image-trigger {
   width: 104px;
   height: 104px;
-  object-fit: cover;
   border-radius: var(--radius-md);
+  overflow: hidden;
+  cursor: zoom-in;
+}
+
+.dish-image-trigger img {
+  width: 104px;
+  height: 104px;
+  border-radius: var(--radius-md);
+  object-fit: cover;
 }
 
 .dish-copy,
@@ -591,6 +777,51 @@ watch(activeCategory, () => {
   font-weight: 700;
 }
 
+.image-preview {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 16px;
+  padding: 16px 16px calc(24px + env(safe-area-inset-bottom));
+  background: rgba(15, 14, 12, 0.94);
+}
+
+.image-preview-close {
+  justify-self: end;
+  min-height: 38px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  font-weight: 700;
+}
+
+.image-preview-stage {
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  touch-action: none;
+}
+
+.image-preview-photo {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  transform-origin: center center;
+  transition: transform 0.08s linear;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.image-preview-tip {
+  margin: 0;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 13px;
+}
+
 .cart-card,
 .order-card,
 .checkout-items {
@@ -649,7 +880,8 @@ watch(activeCategory, () => {
     grid-template-columns: 88px minmax(0, 1fr);
   }
 
-  .dish-card img {
+  .dish-image-trigger,
+  .dish-image-trigger img {
     width: 88px;
     height: 88px;
   }
