@@ -5,6 +5,7 @@ import { useRouter } from "vue-router";
 import { adminApi } from "../../api";
 import { useAuthStore } from "../../stores/auth";
 import { formatCurrency, formatTime, statusText } from "../../utils/format";
+import { getDishImageUrl, handleDishImageError } from "../../utils/media";
 
 const router = useRouter();
 const authStore = useAuthStore();
@@ -238,7 +239,7 @@ onMounted(loadAll);
 
       <div class="card-list">
         <article v-for="dish in dishes" :key="dish.id" class="admin-card dish-card glass-card">
-          <img :src="dish.image_url" :alt="dish.name" />
+          <img :src="getDishImageUrl(dish)" :alt="dish.name" @error="(event) => handleDishImageError(event, dish.name)" />
           <div class="dish-card-copy">
             <div class="admin-card-head">
               <div>

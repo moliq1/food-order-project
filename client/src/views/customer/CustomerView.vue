@@ -4,6 +4,7 @@ import { ElMessage } from "element-plus";
 import { dishApi, orderApi } from "../../api";
 import { useCartStore } from "../../stores/cart";
 import { formatCurrency, formatTime, statusText } from "../../utils/format";
+import { getDishImageUrl, handleDishImageError } from "../../utils/media";
 
 const cartStore = useCartStore();
 const categories = ref([]);
@@ -30,10 +31,11 @@ const orderRules = {
 };
 
 function setCategorySection(id, element) {
-  if (element) {
-    categorySections.set(id, element);
+  const target = element?.$el ?? element;
+  if (target) {
+    categorySections.set(id, target);
     if (observer) {
-      observer.observe(element);
+      observer.observe(target);
     }
   } else {
     categorySections.delete(id);
@@ -41,8 +43,9 @@ function setCategorySection(id, element) {
 }
 
 function setCategoryItem(id, element) {
-  if (element) {
-    categoryItems.set(id, element);
+  const target = element?.$el ?? element;
+  if (target) {
+    categoryItems.set(id, target);
   } else {
     categoryItems.delete(id);
   }
@@ -95,7 +98,23 @@ function syncActiveCategoryIntoView() {
 function scrollToCategory(id) {
   activeCategory.value = id;
   activeSection.value = "menu";
-  categorySections.get(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  const target = categorySections.get(id);
+  if (!target) {
+    return;
+  }
+
+  const top = window.scrollY + target.getBoundingClientRect().top - 92;
+  window.scrollTo({
+    top: Math.max(top, 0),
+    behavior: "smooth"
+  });
+}
+
+function scrollToTop() {
+  window.scrollTo({
+    top: 0,
+    behavior: "smooth"
+  });
 }
 
 function changeQuantity(item, delta) {
@@ -161,8 +180,13 @@ async function cancelOrder(order) {
   ElMessage.success("订单已取消");
 }
 
-onMounted(loadMenu);
-onBeforeUnmount(() => observer?.disconnect());
+onMounted(async () => {
+  await loadMenu();
+});
+
+onBeforeUnmount(() => {
+  observer?.disconnect();
+});
 
 watch(activeCategory, () => {
   nextTick(syncActiveCategoryIntoView);
@@ -228,7 +252,7 @@ watch(activeCategory, () => {
         </div>
 
         <article v-for="dish in category.dishes" :key="dish.id" class="dish-card glass-card">
-          <img :src="dish.image_url" :alt="dish.name" />
+          <img :src="getDishImageUrl(dish)" :alt="dish.name" @error="(event) => handleDishImageError(event, dish.name)" />
           <div class="dish-copy">
             <div class="dish-copy-top">
               <div>
@@ -245,6 +269,10 @@ watch(activeCategory, () => {
         </article>
       </section>
     </main>
+
+    <div class="page-bottom-actions">
+      <button class="back-to-top-link" type="button" @click="scrollToTop">回到顶部</button>
+    </div>
 
     <div class="action-bar customer-action-bar">
       <div class="action-bar-inner">
@@ -366,6 +394,7 @@ watch(activeCategory, () => {
 .customer-page {
   display: grid;
   gap: 14px;
+  min-width: 0;
   padding-bottom: 120px;
 }
 
@@ -401,9 +430,11 @@ watch(activeCategory, () => {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 10px;
+  min-width: 0;
 }
 
 .summary-card {
+  min-width: 0;
   padding: 12px;
   border-radius: var(--radius-md);
   background: var(--surface-soft);
@@ -425,16 +456,26 @@ watch(activeCategory, () => {
 .category-strip {
   position: sticky;
   top: 8px;
-  z-index: 20;
+  align-self: start;
+  z-index: 24;
   padding: 6px 0;
+  min-width: 0;
 }
 
 .category-scroll {
   display: flex;
   gap: 10px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  padding: 4px;
+  border-radius: 999px;
+  background: rgba(247, 244, 237, 0.92);
+  backdrop-filter: blur(10px);
 }
 
 .category-chip {
+  flex: 0 0 auto;
   min-height: 38px;
   padding: 0 16px;
   border-radius: 999px;
@@ -456,6 +497,7 @@ watch(activeCategory, () => {
 .menu-section {
   display: grid;
   gap: 12px;
+  min-width: 0;
 }
 
 .menu-section {
@@ -463,6 +505,8 @@ watch(activeCategory, () => {
 }
 
 .dish-card {
+  width: 100%;
+  min-width: 0;
   display: grid;
   grid-template-columns: 104px minmax(0, 1fr);
   gap: 12px;
@@ -482,10 +526,16 @@ watch(activeCategory, () => {
   gap: 10px;
 }
 
+.dish-copy {
+  min-width: 0;
+}
+
 .dish-copy h3,
 .cart-card-main strong {
   margin: 0;
   font-size: 16px;
+  line-height: 1.35;
+  word-break: break-word;
 }
 
 .dish-bottom strong,
@@ -494,14 +544,51 @@ watch(activeCategory, () => {
   font-size: 18px;
 }
 
+.dish-bottom {
+  flex-wrap: nowrap;
+  min-width: 0;
+}
+
+.dish-bottom > * {
+  min-width: 0;
+}
+
+.dish-bottom strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.dish-bottom :deep(.el-button) {
+  flex-shrink: 0;
+  min-width: 0;
+}
+
 .customer-action-bar {
   position: fixed;
   left: 0;
   right: 0;
   bottom: 0;
-  width: min(100%, var(--app-max));
+  width: 100%;
+  max-width: var(--app-max);
   margin: 0 auto;
   padding: 12px 16px calc(10px + env(safe-area-inset-bottom));
+}
+
+.page-bottom-actions {
+  display: flex;
+  justify-content: center;
+  padding: 4px 0 12px;
+}
+
+.back-to-top-link {
+  min-height: 40px;
+  padding: 0 16px;
+  border-radius: 999px;
+  color: var(--brand-deep);
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid var(--line);
+  font-size: 13px;
+  font-weight: 700;
 }
 
 .cart-card,
@@ -553,28 +640,35 @@ watch(activeCategory, () => {
   font-size: 13px;
 }
 
-@media (min-width: 768px) {
-  .customer-page {
-    width: min(100%, 860px);
-    margin: 0 auto;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    align-items: start;
+@media (max-width: 360px) {
+  .store-summary {
+    grid-template-columns: 1fr;
   }
 
-  .store-hero,
-  .category-strip,
-  .customer-action-bar {
-    grid-column: 1 / -1;
+  .dish-card {
+    grid-template-columns: 88px minmax(0, 1fr);
   }
 
-  .menu-list {
-    grid-column: 1 / -1;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 16px;
+  .dish-card img {
+    width: 88px;
+    height: 88px;
   }
 
-  .menu-section {
-    align-content: start;
+  .dish-bottom {
+    flex-wrap: wrap;
+  }
+
+  .dish-bottom :deep(.el-button) {
+    width: 100%;
+  }
+
+  .action-bar-inner {
+    flex-wrap: wrap;
+  }
+
+  .action-bar-primary {
+    width: 100%;
+    min-width: 0;
   }
 }
 </style>

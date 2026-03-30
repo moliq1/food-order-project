@@ -29,13 +29,19 @@
 }
 
 html {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
   -webkit-text-size-adjust: 100%;
   background: #ebe7dd;
 }
 
 body {
+  width: 100%;
+  max-width: 100%;
   margin: 0;
   min-height: 100vh;
+  overflow-x: hidden;
   color: var(--ink);
   background:
     radial-gradient(circle at top, rgba(255, 245, 229, 0.98), transparent 34%),
@@ -67,11 +73,14 @@ img {
 }
 
 #app {
+  width: 100%;
+  max-width: 100%;
   min-height: 100vh;
 }
 
 .page-shell {
   width: min(100%, var(--app-max));
+  max-width: var(--app-max);
   min-height: 100vh;
   margin: 0 auto;
   padding: 16px 16px calc(16px + env(safe-area-inset-bottom));
@@ -319,16 +328,4 @@ img {
 .page-shell .el-button--danger {
   --el-button-bg-color: var(--danger);
   --el-button-border-color: var(--danger);
-}
-
-@media (min-width: 768px) {
-  .page-shell {
-    width: min(100%, 960px);
-    padding-left: 20px;
-    padding-right: 20px;
-  }
-
-  .page-title {
-    font-size: 34px;
-  }
 }
