@@ -47,10 +47,23 @@
 docker compose up -d --build
 ```
 
+或者直接执行部署脚本：
+
+```bash
+chmod +x deploy.sh
+./deploy.sh
+```
+
 启动后可通过以下地址访问：
 
 ```text
 http://服务器公网IP:18080
+```
+
+如需指定分支或端口提示，可这样执行：
+
+```bash
+BRANCH=master PORT=18080 ./deploy.sh
 ```
 
 ### 3. 端口修改
